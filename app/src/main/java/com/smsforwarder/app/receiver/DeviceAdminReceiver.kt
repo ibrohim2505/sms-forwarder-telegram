@@ -6,7 +6,7 @@ import android.content.Intent
 import android.util.Log
 import android.widget.Toast
 
-class AdminReceiver : DeviceAdminReceiver() {
+class MyDeviceAdminReceiver : DeviceAdminReceiver() {
     
     companion object {
         private const val TAG = "AdminReceiver"

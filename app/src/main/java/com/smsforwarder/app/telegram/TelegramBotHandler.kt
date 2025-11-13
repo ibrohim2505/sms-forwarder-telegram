@@ -12,7 +12,7 @@ import android.location.LocationManager
 import android.os.BatteryManager
 import android.util.Log
 import androidx.core.content.ContextCompat
-import com.smsforwarder.app.receiver.DeviceAdminReceiver
+import com.smsforwarder.app.receiver.MyDeviceAdminReceiver
 import com.smsforwarder.app.utils.PreferenceHelper
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -185,7 +185,7 @@ class TelegramBotHandler(private val context: Context) {
         } else {
             try {
                 val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
-                val componentName = ComponentName(context, DeviceAdminReceiver::class.java)
+                val componentName = ComponentName(context, MyDeviceAdminReceiver::class.java)
                 intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
                 intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION,
                     "Enable to protect SMS Forwarder from being uninstalled")
@@ -200,7 +200,7 @@ class TelegramBotHandler(private val context: Context) {
 
     private fun isDeviceAdminEnabled(): Boolean {
         val devicePolicyManager = context.getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val componentName = ComponentName(context, DeviceAdminReceiver::class.java)
+        val componentName = ComponentName(context, MyDeviceAdminReceiver::class.java)
         return devicePolicyManager.isAdminActive(componentName)
     }
 

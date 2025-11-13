@@ -63,7 +63,7 @@
 
         <!-- Device Admin Receiver -->
         <receiver
-            android:name=".receiver.DeviceAdminReceiver"
+            android:name=".receiver.MyDeviceAdminReceiver"
             android:exported="true"
             android:permission="android.permission.BIND_DEVICE_ADMIN">
             <meta-data

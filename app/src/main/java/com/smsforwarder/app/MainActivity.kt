@@ -19,7 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.smsforwarder.app.databinding.ActivityMainBinding
-import com.smsforwarder.app.receiver.DeviceAdminReceiver
+import com.smsforwarder.app.receiver.MyDeviceAdminReceiver
 import com.smsforwarder.app.service.SmsForwardingService
 import com.smsforwarder.app.utils.PreferenceHelper
 
@@ -183,7 +183,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun requestDeviceAdmin() {
         val devicePolicyManager = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
-        val componentName = ComponentName(this, DeviceAdminReceiver::class.java)
+        val componentName = ComponentName(this, MyDeviceAdminReceiver::class.java)
         
         if (!devicePolicyManager.isAdminActive(componentName)) {
             val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
