@@ -1,0 +1,14 @@
+<resources>
+    <string name="app_name">SMS Forwarder</string>
+    <string name="instructions">
+        <b>How to use:</b>\n\n
+        1. Create a Telegram bot using @BotFather\n
+        2. Get your bot token from BotFather\n
+        3. Start a chat with your bot\n
+        4. Get your chat ID (use @userinfobot)\n
+        5. Enter bot token and chat ID above\n
+        6. Grant SMS permissions\n
+        7. Enable the forwarding service\n\n
+        All incoming SMS will be forwarded to your Telegram.
+    </string>
+</resources>
