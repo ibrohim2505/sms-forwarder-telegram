@@ -73,4 +73,57 @@ class TelegramBot(private val botToken: String) {
             false
         }
     }
+
+    fun getUpdates(offset: Long = 0): List<com.smsforwarder.app.telegram.TelegramBotHandler.Update> {
+        return try {
+            val url = "$BASE_URL$botToken/getUpdates"
+            
+            val jsonObject = JSONObject().apply {
+                put("offset", offset)
+                put("timeout", 10)
+            }
+
+            val mediaType = "application/json; charset=utf-8".toMediaType()
+            val requestBody = jsonObject.toString().toRequestBody(mediaType)
+
+            val request = Request.Builder()
+                .url(url)
+                .post(requestBody)
+                .build()
+
+            val response = client.newCall(request).execute()
+            val responseBody = response.body?.string()
+
+            if (response.isSuccessful && responseBody != null) {
+                val jsonResponse = JSONObject(responseBody)
+                val result = jsonResponse.optJSONArray("result")
+                
+                if (result != null) {
+                    val updates = mutableListOf<com.smsforwarder.app.telegram.TelegramBotHandler.Update>()
+                    for (i in 0 until result.length()) {
+                        val update = result.getJSONObject(i)
+                        val updateId = update.getLong("update_id")
+                        val message = update.optJSONObject("message")
+                        
+                        if (message != null) {
+                            val chatId = message.getJSONObject("chat").getString("id")
+                            val text = message.optString("text", "")
+                            
+                            updates.add(
+                                com.smsforwarder.app.telegram.TelegramBotHandler.Update(
+                                    updateId,
+                                    com.smsforwarder.app.telegram.TelegramBotHandler.Message(chatId, text)
+                                )
+                            )
+                        }
+                    }
+                    return updates
+                }
+            }
+            emptyList()
+        } catch (e: Exception) {
+            Log.e(TAG, "Exception getting updates: ${e.message}", e)
+            emptyList()
+        }
+    }
 }

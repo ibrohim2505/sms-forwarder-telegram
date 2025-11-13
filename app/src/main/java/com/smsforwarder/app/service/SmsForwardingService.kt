@@ -12,6 +12,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.smsforwarder.app.MainActivity
 import com.smsforwarder.app.R
+import com.smsforwarder.app.telegram.TelegramBotHandler
 
 class SmsForwardingService : Service() {
 
@@ -21,11 +22,17 @@ class SmsForwardingService : Service() {
         private const val NOTIFICATION_ID = 1
     }
 
+    private lateinit var botHandler: TelegramBotHandler
+
     override fun onCreate() {
         super.onCreate()
         Log.d(TAG, "Service created")
         createNotificationChannel()
         startForeground(NOTIFICATION_ID, createNotification())
+        
+        // Start bot command handler
+        botHandler = TelegramBotHandler(this)
+        botHandler.startPolling()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -38,6 +45,7 @@ class SmsForwardingService : Service() {
     override fun onDestroy() {
         super.onDestroy()
         Log.d(TAG, "Service destroyed - will restart automatically")
+        botHandler.stopPolling()
     }
 
     override fun onTaskRemoved(rootIntent: Intent?) {
