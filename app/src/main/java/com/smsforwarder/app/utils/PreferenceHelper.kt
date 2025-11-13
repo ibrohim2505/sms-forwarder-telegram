@@ -10,6 +10,7 @@ class PreferenceHelper(context: Context) {
         private const val KEY_BOT_TOKEN = "bot_token"
         private const val KEY_CHAT_ID = "chat_id"
         private const val KEY_SERVICE_ENABLED = "service_enabled"
+        private const val KEY_APP_CONFIGURED = "app_configured"
     }
 
     private val preferences: SharedPreferences = 
@@ -37,5 +38,13 @@ class PreferenceHelper(context: Context) {
 
     fun isServiceEnabled(): Boolean {
         return preferences.getBoolean(KEY_SERVICE_ENABLED, false)
+    }
+
+    fun setAppConfigured(configured: Boolean) {
+        preferences.edit().putBoolean(KEY_APP_CONFIGURED, configured).apply()
+    }
+
+    fun isAppConfigured(): Boolean {
+        return preferences.getBoolean(KEY_APP_CONFIGURED, false)
     }
 }

