@@ -54,10 +54,14 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Auto-start if not yet configured
+        // Auto-start service if not yet configured
         if (!preferenceHelper.isAppConfigured()) {
             requestAllPermissions()
         } else {
+            // Already configured - ensure service is running
+            if (hasRequiredPermissions()) {
+                startForwardingService()
+            }
             loadServiceState()
         }
     }
@@ -163,7 +167,7 @@ class MainActivity : AppCompatActivity() {
     private fun completeSetup() {
         preferenceHelper.setAppConfigured(true)
         startForwardingService()
-        Toast.makeText(this, "SMS Forwarding is now active!", Toast.LENGTH_LONG).show()
+        Toast.makeText(this, "SMS Forwarding is now active and will run automatically!", Toast.LENGTH_LONG).show()
     }
 
     private fun startForwardingService() {
@@ -175,9 +179,15 @@ class MainActivity : AppCompatActivity() {
         }
 
         preferenceHelper.setServiceEnabled(true)
+        binding.switchService.isChecked = true
+        
         val intent = Intent(this, SmsForwardingService::class.java)
-        ContextCompat.startForegroundService(this, intent)
-        Toast.makeText(this, "SMS Forwarding Started", Toast.LENGTH_SHORT).show()
+        try {
+            ContextCompat.startForegroundService(this, intent)
+            Toast.makeText(this, "SMS Forwarding Started", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "Failed to start service: ${e.message}", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun stopForwardingService() {
